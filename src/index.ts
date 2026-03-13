@@ -6,7 +6,7 @@ const VIDEO_BASE_URL = (process.env.VIDEO_BASE_URL ?? 'http://localhost:8080/vid
 const GRAPHQL_URL = 'https://graphql.animethemes.moe/'
 const THEME_SLUG_RE = /^(OP|ED)(\d+)?(v(\d+))?(?:-(.+))?$/i
 
-const QUERY = `
+const SLUG_QUERY = `
   query($anime: String!, $theme: String!) {
     anime(slug: $anime) {
       animethemes(slug: $theme) {
@@ -16,6 +16,14 @@ const QUERY = `
           }
         }
       }
+    }
+  }
+`
+
+const BASENAME_QUERY = `
+  query($basename: String!) {
+    videoPagination(first: 1, basename: $basename) {
+      data { path }
     }
   }
 `
@@ -37,6 +45,9 @@ interface GraphQLResponse {
   data?: {
     anime?: {
       animethemes?: AnimeTheme[]
+    }
+    videoPagination?: {
+      data: { path: string }[]
     }
   }
   errors?: { message: string }[]
@@ -60,7 +71,7 @@ app.get('/anime/:animeSlug/:themeEntry', async (c) => {
         'Content-Type': 'application/json',
         'User-Agent': 'animethemes-redirector/1.0 (https://github.com/hiinaspace/animethemes-redirector)',
       },
-      body: JSON.stringify({ query: QUERY, variables: { anime: animeSlug, theme: themeSlug } }),
+      body: JSON.stringify({ query: SLUG_QUERY, variables: { anime: animeSlug, theme: themeSlug } }),
     })
     result = await res.json() as GraphQLResponse
   } catch (e) {
@@ -87,6 +98,36 @@ app.get('/anime/:animeSlug/:themeEntry', async (c) => {
   if (!video) return c.text('No matching video found', 404)
 
   return c.redirect(`${VIDEO_BASE_URL}/${video.path}`, 301)
+})
+
+// Handle flat CDN-style URLs: /video/ShingekiNoBahamutVirginSoul-OP1.webm
+// mirrors https://v.animethemes.moe/:basename
+app.get('/video/:basename', async (c) => {
+  const { basename } = c.req.param()
+
+  let result: GraphQLResponse
+  try {
+    const res = await fetch(GRAPHQL_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'animethemes-redirector/1.0 (https://github.com/hiinaspace/animethemes-redirector)',
+      },
+      body: JSON.stringify({ query: BASENAME_QUERY, variables: { basename } }),
+    })
+    result = await res.json() as GraphQLResponse
+  } catch (e) {
+    return c.text('Failed to reach AnimeThemes API', 502)
+  }
+
+  if (result.errors?.length) {
+    return c.text(`AnimeThemes API error: ${result.errors[0].message}`, 502)
+  }
+
+  const path = result.data?.videoPagination?.data[0]?.path
+  if (!path) return c.text('Video not found', 404)
+
+  return c.redirect(`${VIDEO_BASE_URL}/${path}`, 301)
 })
 
 export default app
