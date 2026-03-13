@@ -1,0 +1,11 @@
+{
+  "name": "animethemes-redirector",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "hono": "^4"
+  }
+}
