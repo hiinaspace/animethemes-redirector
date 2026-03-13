@@ -58,7 +58,7 @@ app.get('/anime/:animeSlug/:themeEntry', async (c) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'animethemes-redirector/1.0 (https://github.com/s/animethemes-redirector)',
+        'User-Agent': 'animethemes-redirector/1.0 (https://github.com/hiinaspace/animethemes-redirector)',
       },
       body: JSON.stringify({ query: QUERY, variables: { anime: animeSlug, theme: themeSlug } }),
     })
